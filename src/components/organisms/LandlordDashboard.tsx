@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import DashboardHeader from './DashboardHeader';
 import PackageTable from './PackageTable';
@@ -10,38 +10,11 @@ import { Package } from '../molecules/PackageTableRow';
 import Toast from '../atoms/Toast';
 import AdminSettings from './AdminSettings';
 import TenantManagement from './TenantManagement';
-import { sendNotification } from '../atoms/notificationService';
-
-const initialPackages: Package[] = [
-    {
-        id: '1',
-        tenant: 'John Doe',
-        unit: 'A1',
-        carrier: 'UPS',
-        trackingId: '1Z2345',
-        contact: 'john@example.com',
-        status: 'pending',
-        activityLog: [
-            { action: 'Package added', timestamp: new Date().toISOString() },
-        ],
-    },
-    {
-        id: '2',
-        tenant: 'Jane Smith',
-        unit: 'B2',
-        carrier: 'FedEx',
-        trackingId: '2Y6789',
-        contact: 'jane@example.com',
-        status: 'notified',
-        activityLog: [
-            { action: 'Package added', timestamp: new Date().toISOString() },
-            { action: 'Tenant notified', timestamp: new Date().toISOString() },
-        ],
-    },
-];
 
 const LandlordDashboard: React.FC = () => {
-    const [packages, setPackages] = useState<Package[]>(initialPackages);
+    const [packages, setPackages] = useState<Package[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
@@ -54,6 +27,24 @@ const LandlordDashboard: React.FC = () => {
         { id: '2', name: 'Jane Smith', unit: 'B2', contact: 'jane@example.com' },
     ]);
     const [activeSection, setActiveSection] = useState<'packages' | 'tenants' | 'settings'>('packages');
+
+    // Fetch packages from backend
+    useEffect(() => {
+        setLoading(true);
+        fetch('/api/packages')
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch packages');
+                return res.json();
+            })
+            .then(data => {
+                setPackages(data);
+                setLoading(false);
+            })
+            .catch(() => {
+                setError('Could not load packages.');
+                setLoading(false);
+            });
+    }, []);
 
     const handleAdd = () => {
         setEditId(null);
@@ -69,101 +60,81 @@ const LandlordDashboard: React.FC = () => {
         setDeleteId(id);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (deleteId) {
-            setPackages(pkgs => pkgs.map(pkg =>
-                pkg.id === deleteId
-                    ? {
-                        ...pkg,
-                        activityLog: [
-                            ...(pkg.activityLog || []),
-                            { action: 'Package deleted', timestamp: new Date().toISOString() },
-                        ],
-                    }
-                    : pkg
-            ).filter(pkg => pkg.id !== deleteId));
-            setToast({ message: 'Package deleted.', type: 'success' });
-            setDeleteId(null);
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(`/api/packages/${deleteId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to delete package');
+                // Refetch packages
+                const res = await fetch('/api/packages');
+                setPackages(await res.json());
+                setToast({ message: 'Package deleted.', type: 'success' });
+                setDeleteId(null);
+            } catch {
+                setError('Could not delete package.');
+                setToast({ message: 'Error deleting package.', type: 'error' });
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
     const cancelDelete = () => setDeleteId(null);
 
-    const handleSubmit = (values: PackageFormValues) => {
-        const now = new Date().toISOString();
-        if (editId) {
-            setPackages(pkgs => pkgs.map(pkg =>
-                pkg.id === editId
-                    ? {
-                        ...pkg,
-                        ...values,
-                        activityLog: [
-                            ...(pkg.activityLog || []),
-                            { action: 'Package updated', timestamp: now },
-                        ],
-                    }
-                    : pkg
-            ));
-            setToast({ message: 'Package updated.', type: 'success' });
-        } else {
-            setPackages(pkgs => [
-                ...pkgs,
-                {
-                    ...values,
-                    id: Date.now().toString(),
-                    status: 'pending' as const,
-                    activityLog: [
-                        { action: 'Package added', timestamp: now },
-                    ],
-                },
-            ]);
-            setToast({ message: 'Package added.', type: 'success' });
-        }
-        setModalOpen(false);
-    };
-
-    const handleNotify = (id: string, confirmPickup?: boolean) => {
-        const now = new Date().toISOString();
-        if (confirmPickup) {
-            setPackages(pkgs => pkgs.map(pkg =>
-                pkg.id === id
-                    ? {
-                        ...pkg,
-                        status: 'picked_up',
-                        activityLog: [
-                            ...(pkg.activityLog || []),
-                            { action: 'Package picked up', timestamp: now },
-                        ],
-                    }
-                    : pkg
-            ));
-            setToast({ message: 'Package marked as picked up!', type: 'success' });
-        } else {
-            const pkg = packages.find(p => p.id === id);
-            if (pkg) {
-                sendNotification({
-                    contact: pkg.contact,
-                    message: `You have a package (${pkg.carrier}, ${pkg.trackingId}) ready for pickup!`,
-                    onSuccess: () => {
-                        setPackages(pkgs => pkgs.map(p =>
-                            p.id === id
-                                ? {
-                                    ...p,
-                                    status: 'notified',
-                                    activityLog: [
-                                        ...(p.activityLog || []),
-                                        { action: 'Tenant notified', timestamp: new Date().toISOString() },
-                                    ],
-                                }
-                                : p
-                        ));
-                        setToast({ message: 'Tenant notified (mocked)!', type: 'info' });
-                    },
-                    onError: (err) => {
-                        setToast({ message: `Notification failed: ${err}`, type: 'error' });
-                    },
+    const handleSubmit = async (values: PackageFormValues) => {
+        setLoading(true);
+        setError(null);
+        try {
+            let response;
+            if (editId) {
+                response = await fetch(`/api/packages/${editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(values),
+                });
+            } else {
+                response = await fetch('/api/packages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(values),
                 });
             }
+            if (!response.ok) throw new Error('Failed to save package');
+            // Refetch packages
+            const res = await fetch('/api/packages');
+            setPackages(await res.json());
+            setToast({ message: editId ? 'Package updated.' : 'Package added.', type: 'success' });
+            setModalOpen(false);
+        } catch {
+            setError('Could not save package.');
+            setToast({ message: 'Error saving package.', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleNotify = async (id: string, confirmPickup?: boolean) => {
+        setLoading(true);
+        setError(null);
+        try {
+            let response;
+            if (confirmPickup) {
+                response = await fetch(`/api/packages/${id}/pickup`, { method: 'POST' });
+            } else {
+                response = await fetch(`/api/packages/${id}/notify`, { method: 'POST' });
+            }
+            if (!response.ok) throw new Error('Failed to update package');
+            // Refetch packages
+            const res = await fetch('/api/packages');
+            setPackages(await res.json());
+            setToast({ message: confirmPickup ? 'Package marked as picked up!' : 'Tenant notified!', type: 'success' });
+        } catch {
+            setError('Could not update package.');
+            setToast({ message: 'Error updating package.', type: 'error' });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -194,6 +165,9 @@ const LandlordDashboard: React.FC = () => {
     });
 
     const editingPackage = editId ? packages.find(pkg => pkg.id === editId) : undefined;
+
+    if (loading) return <div className="text-center py-10">Loading...</div>;
+    if (error) return <div className="text-center py-10 text-red-600">{error}</div>;
 
     return (
         <div className="max-w-4xl mx-auto p-4">
