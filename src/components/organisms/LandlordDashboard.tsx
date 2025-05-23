@@ -10,6 +10,8 @@ import { Package } from '../molecules/PackageTableRow';
 import Toast from '../atoms/Toast';
 import AdminSettings from './AdminSettings';
 import TenantManagement from './TenantManagement';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const LandlordDashboard: React.FC = () => {
     const [packages, setPackages] = useState<Package[]>([]);
@@ -28,22 +30,18 @@ const LandlordDashboard: React.FC = () => {
     ]);
     const [activeSection, setActiveSection] = useState<'packages' | 'tenants' | 'settings'>('packages');
 
-    // Fetch packages from backend
+    // Fetch packages from Firestore (real-time)
     useEffect(() => {
         setLoading(true);
-        fetch('/api/packages')
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch packages');
-                return res.json();
-            })
-            .then(data => {
-                setPackages(data);
-                setLoading(false);
-            })
-            .catch(() => {
-                setError('Could not load packages.');
-                setLoading(false);
-            });
+        const unsub = onSnapshot(collection(db, 'packages'), (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setPackages(data as Package[]);
+            setLoading(false);
+        }, () => {
+            setError('Could not load packages.');
+            setLoading(false);
+        });
+        return () => unsub();
     }, []);
 
     const handleAdd = () => {
@@ -60,16 +58,13 @@ const LandlordDashboard: React.FC = () => {
         setDeleteId(id);
     };
 
+    // Delete package in Firestore
     const confirmDelete = async () => {
         if (deleteId) {
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch(`/api/packages/${deleteId}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error('Failed to delete package');
-                // Refetch packages
-                const res = await fetch('/api/packages');
-                setPackages(await res.json());
+                await deleteDoc(doc(db, 'packages', deleteId));
                 setToast({ message: 'Package deleted.', type: 'success' });
                 setDeleteId(null);
             } catch {
@@ -83,29 +78,22 @@ const LandlordDashboard: React.FC = () => {
 
     const cancelDelete = () => setDeleteId(null);
 
+    // Add or update package in Firestore
     const handleSubmit = async (values: PackageFormValues) => {
         setLoading(true);
         setError(null);
         try {
-            let response;
             if (editId) {
-                response = await fetch(`/api/packages/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(values),
-                });
+                await updateDoc(doc(db, 'packages', editId), { ...values });
+                setToast({ message: 'Package updated.', type: 'success' });
             } else {
-                response = await fetch('/api/packages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(values),
+                await addDoc(collection(db, 'packages'), {
+                    ...values,
+                    status: 'pending',
+                    activityLog: [{ action: 'Package added', timestamp: new Date().toISOString() }],
                 });
+                setToast({ message: 'Package added.', type: 'success' });
             }
-            if (!response.ok) throw new Error('Failed to save package');
-            // Refetch packages
-            const res = await fetch('/api/packages');
-            setPackages(await res.json());
-            setToast({ message: editId ? 'Package updated.' : 'Package added.', type: 'success' });
             setModalOpen(false);
         } catch {
             setError('Could not save package.');
@@ -115,20 +103,25 @@ const LandlordDashboard: React.FC = () => {
         }
     };
 
+    // Notify or confirm pickup (update status and log in Firestore)
     const handleNotify = async (id: string, confirmPickup?: boolean) => {
         setLoading(true);
         setError(null);
         try {
-            let response;
-            if (confirmPickup) {
-                response = await fetch(`/api/packages/${id}/pickup`, { method: 'POST' });
-            } else {
-                response = await fetch(`/api/packages/${id}/notify`, { method: 'POST' });
-            }
-            if (!response.ok) throw new Error('Failed to update package');
-            // Refetch packages
-            const res = await fetch('/api/packages');
-            setPackages(await res.json());
+            const pkgRef = doc(db, 'packages', id);
+            const pkgSnap = await getDoc(pkgRef);
+            const pkg = pkgSnap.data();
+            if (!pkg) throw new Error('Package not found');
+            const updates = confirmPickup
+                ? {
+                    status: 'picked_up',
+                    activityLog: [...(pkg.activityLog || []), { action: 'Package picked up', timestamp: new Date().toISOString() }],
+                }
+                : {
+                    status: 'notified',
+                    activityLog: [...(pkg.activityLog || []), { action: 'Tenant notified', timestamp: new Date().toISOString() }],
+                };
+            await updateDoc(pkgRef, updates);
             setToast({ message: confirmPickup ? 'Package marked as picked up!' : 'Tenant notified!', type: 'success' });
         } catch {
             setError('Could not update package.');
