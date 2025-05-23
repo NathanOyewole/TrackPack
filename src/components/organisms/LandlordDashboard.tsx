@@ -8,6 +8,7 @@ import PackageForm, { PackageFormValues } from '../molecules/PackageForm';
 import { Package } from '../molecules/PackageTableRow';
 import Toast from '../atoms/Toast';
 import AdminSettings from './AdminSettings';
+import TenantManagement from './TenantManagement';
 
 const initialPackages: Package[] = [
     {
@@ -47,6 +48,10 @@ const LandlordDashboard: React.FC = () => {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [adminSettings, setAdminSettings] = useState({ name: 'Landlord', email: 'landlord@email.com', notifyBy: 'email' });
+    const [tenants, setTenants] = useState([
+        { id: '1', name: 'John Doe', unit: 'A1', contact: 'john@example.com' },
+        { id: '2', name: 'Jane Smith', unit: 'B2', contact: 'jane@example.com' },
+    ]);
 
     const handleAdd = () => {
         setEditId(null);
@@ -245,6 +250,7 @@ const LandlordDashboard: React.FC = () => {
                 onSave={settings => { setAdminSettings(settings); setSettingsOpen(false); setToast({ message: 'Settings saved!', type: 'success' }); }}
                 initial={adminSettings}
             />
+            <TenantManagement tenants={tenants} setTenants={setTenants} />
         </div>
     );
 };

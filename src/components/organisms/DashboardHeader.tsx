@@ -11,13 +11,15 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onAdd }) => {
         window.location.href = '/login';
     };
     return (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-2">
-            <div className="flex flex-col gap-2">
+        <header className="w-full mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
                 <h1 className="text-2xl font-bold">Landlord Dashboard</h1>
-                <SampleButton label="Logout" onClick={handleLogout} />
+                <div className="flex gap-2 items-center mt-2 sm:mt-0">
+                    <SampleButton label="Add Package" onClick={onAdd} />
+                    <SampleButton label="Logout" onClick={handleLogout} />
+                </div>
             </div>
-            <SampleButton label="Add Package" onClick={onAdd} />
-        </div>
+        </header>
     );
 };
 
