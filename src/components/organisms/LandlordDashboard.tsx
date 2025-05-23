@@ -12,6 +12,10 @@ import AdminSettings from './AdminSettings';
 import TenantManagement from './TenantManagement';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Stripe publishable key (test mode)
+const stripePromise = loadStripe('pk_test_XXXXXXXXXXXXXXXXXXXXXXXX');
 
 const LandlordDashboard: React.FC = () => {
     const [packages, setPackages] = useState<Package[]>([]);
@@ -29,6 +33,16 @@ const LandlordDashboard: React.FC = () => {
         { id: '2', name: 'Jane Smith', unit: 'B2', contact: 'jane@example.com' },
     ]);
     const [activeSection, setActiveSection] = useState<'packages' | 'tenants' | 'settings'>('packages');
+
+    // Example: Pricing plans (could be fetched from Firestore or static)
+    const PRICING_PLANS = [
+        { id: 'free', name: 'Free', price: 0, features: ['Basic package tracking', 'Unlimited tenants'] },
+        { id: 'pro', name: 'Pro', price: 29, features: ['Everything in Free', 'SMS/email notifications', 'Branded notifications', 'Analytics & reporting'] },
+        { id: 'enterprise', name: 'Enterprise', price: 99, features: ['Everything in Pro', 'API access', 'White-label', 'Priority support'] },
+    ];
+
+    // Example: User subscription state (should be loaded from Firestore in production)
+    const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
 
     // Fetch packages from Firestore (real-time)
     useEffect(() => {
@@ -158,6 +172,18 @@ const LandlordDashboard: React.FC = () => {
     });
 
     const editingPackage = editId ? packages.find(pkg => pkg.id === editId) : undefined;
+
+    // Example: Stripe checkout handler
+    const handleUpgrade = async (planId: string) => {
+        // In production, call a backend or Firebase Function to create a Stripe Checkout session
+        // For demo, just simulate
+        setToast({ message: `Redirecting to Stripe for ${planId} plan...`, type: 'info' });
+        // Example fetch (replace with your endpoint):
+        // const res = await fetch('/api/create-checkout-session', { method: 'POST', body: JSON.stringify({ planId }) });
+        // const { sessionId } = await res.json();
+        // const stripe = await stripePromise;
+        // await stripe.redirectToCheckout({ sessionId });
+    };
 
     if (loading) return <div className="text-center py-10">Loading...</div>;
     if (error) return <div className="text-center py-10 text-red-600">{error}</div>;
@@ -296,12 +322,35 @@ const LandlordDashboard: React.FC = () => {
             )}
 
             {activeSection === 'settings' && (
-                <AdminSettings
-                    open={true}
-                    onClose={() => setActiveSection('packages')}
-                    onSave={settings => { setAdminSettings(settings); setActiveSection('packages'); setToast({ message: 'Settings saved!', type: 'success' }); }}
-                    initial={adminSettings}
-                />
+                <>
+                    <AdminSettings
+                        open={true}
+                        onClose={() => setActiveSection('packages')}
+                        onSave={settings => { setAdminSettings(settings); setActiveSection('packages'); setToast({ message: 'Settings saved!', type: 'success' }); }}
+                        initial={adminSettings}
+                    />
+                    <div className="mt-8">
+                        <h2 className="text-xl font-bold mb-4">Pricing & Plans</h2>
+                        <div className="grid md:grid-cols-3 gap-6">
+                            {PRICING_PLANS.map(plan => (
+                                <div key={plan.id} className={`border rounded-lg p-6 flex flex-col items-center ${userPlan === plan.id ? 'border-blue-600' : 'border-gray-200'}`}>
+                                    <div className="text-lg font-bold mb-2">{plan.name}</div>
+                                    <div className="text-3xl font-extrabold mb-2">{plan.price === 0 ? 'Free' : `$${plan.price}/mo`}</div>
+                                    <ul className="mb-4 text-sm text-gray-700">
+                                        {plan.features.map(f => <li key={f}>• {f}</li>)}
+                                    </ul>
+                                    {userPlan === plan.id ? (
+                                        <span className="px-4 py-2 rounded bg-blue-600 text-white">Current Plan</span>
+                                    ) : (
+                                        <button className="px-4 py-2 rounded bg-green-600 text-white" onClick={() => handleUpgrade(plan.id)}>
+                                            {plan.price === 0 ? 'Downgrade' : 'Upgrade'}
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </>
             )}
 
             {toast && (
