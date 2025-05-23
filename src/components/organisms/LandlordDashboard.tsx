@@ -9,6 +9,7 @@ import { Package } from '../molecules/PackageTableRow';
 import Toast from '../atoms/Toast';
 import AdminSettings from './AdminSettings';
 import TenantManagement from './TenantManagement';
+import { sendNotification } from '../atoms/notificationService';
 
 const initialPackages: Package[] = [
     {
@@ -137,19 +138,31 @@ const LandlordDashboard: React.FC = () => {
             ));
             setToast({ message: 'Package marked as picked up!', type: 'success' });
         } else {
-            setPackages(pkgs => pkgs.map(pkg =>
-                pkg.id === id
-                    ? {
-                        ...pkg,
-                        status: 'notified',
-                        activityLog: [
-                            ...(pkg.activityLog || []),
-                            { action: 'Tenant notified', timestamp: now },
-                        ],
-                    }
-                    : pkg
-            ));
-            setToast({ message: 'Tenant notified!', type: 'info' });
+            const pkg = packages.find(p => p.id === id);
+            if (pkg) {
+                sendNotification({
+                    contact: pkg.contact,
+                    message: `You have a package (${pkg.carrier}, ${pkg.trackingId}) ready for pickup!`,
+                    onSuccess: () => {
+                        setPackages(pkgs => pkgs.map(p =>
+                            p.id === id
+                                ? {
+                                    ...p,
+                                    status: 'notified',
+                                    activityLog: [
+                                        ...(p.activityLog || []),
+                                        { action: 'Tenant notified', timestamp: new Date().toISOString() },
+                                    ],
+                                }
+                                : p
+                        ));
+                        setToast({ message: 'Tenant notified (mocked)!', type: 'info' });
+                    },
+                    onError: (err) => {
+                        setToast({ message: `Notification failed: ${err}`, type: 'error' });
+                    },
+                });
+            }
         }
     };
 
