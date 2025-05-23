@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import DashboardHeader from './DashboardHeader';
 import PackageTable from './PackageTable';
 import Modal from '../atoms/Modal';
@@ -47,12 +48,12 @@ const LandlordDashboard: React.FC = () => {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [deleteId, setDeleteId] = useState<string | null>(null);
-    const [settingsOpen, setSettingsOpen] = useState(false);
     const [adminSettings, setAdminSettings] = useState({ name: 'Landlord', email: 'landlord@email.com', notifyBy: 'email' });
     const [tenants, setTenants] = useState([
         { id: '1', name: 'John Doe', unit: 'A1', contact: 'john@example.com' },
         { id: '2', name: 'Jane Smith', unit: 'B2', contact: 'jane@example.com' },
     ]);
+    const [activeSection, setActiveSection] = useState<'packages' | 'tenants' | 'settings'>('packages');
 
     const handleAdd = () => {
         setEditId(null);
@@ -196,50 +197,150 @@ const LandlordDashboard: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-4">
+            <header className="flex items-center gap-3 mb-8">
+                <Image src="/file.svg" alt="Site Logo" width={32} height={32} priority />
+                <span className="text-2xl font-bold tracking-tight">Landlord SaaS</span>
+            </header>
+            <nav className="flex flex-wrap gap-2 mb-8 border-b pb-3" role="tablist" aria-label="Dashboard Sections">
+                <button
+                    className={`px-4 py-2 rounded-t transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 ${activeSection === 'packages' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-blue-100'}`}
+                    onClick={() => setActiveSection('packages')}
+                    aria-selected={activeSection === 'packages'}
+                    aria-label="Packages Section"
+                    role="tab"
+                >
+                    Packages
+                </button>
+                <button
+                    className={`px-4 py-2 rounded-t transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 ${activeSection === 'tenants' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-blue-100'}`}
+                    onClick={() => setActiveSection('tenants')}
+                    aria-selected={activeSection === 'tenants'}
+                    aria-label="Tenants Section"
+                    role="tab"
+                >
+                    Tenants
+                </button>
+                <button
+                    className={`px-4 py-2 rounded-t transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 ${activeSection === 'settings' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-blue-100'}`}
+                    onClick={() => setActiveSection('settings')}
+                    aria-selected={activeSection === 'settings'}
+                    aria-label="Admin Settings Section"
+                    role="tab"
+                >
+                    Admin Settings
+                </button>
+            </nav>
+
+            {activeSection === 'packages' && (
+                <>
+                    <DashboardHeader onAdd={handleAdd} />
+                    <div className="flex flex-col md:flex-row gap-4 mb-6">
+                        <input
+                            className="border rounded px-3 py-2 flex-1 min-w-0"
+                            placeholder="Search by tenant, unit, carrier, tracking ID..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                        <select
+                            className="border rounded px-3 py-2 min-w-[140px]"
+                            value={statusFilter}
+                            onChange={e => setStatusFilter(e.target.value)}
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="notified">Notified</option>
+                            <option value="picked_up">Picked Up</option>
+                        </select>
+                        <button
+                            className="px-4 py-2 rounded bg-blue-600 text-white whitespace-nowrap"
+                            onClick={exportCSV}
+                        >
+                            Export CSV
+                        </button>
+                        <button
+                            className="px-4 py-2 rounded bg-green-600 text-white whitespace-nowrap"
+                            onClick={() => {
+                                const headers = ['Package', 'Action', 'Timestamp'];
+                                const rows = packages.flatMap(pkg =>
+                                    (pkg.activityLog || []).map(log => [
+                                        `${pkg.tenant} (${pkg.trackingId})`,
+                                        log.action,
+                                        log.timestamp
+                                    ])
+                                );
+                                const csvContent = [headers, ...rows]
+                                    .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+                                    .join('\n');
+                                const blob = new Blob([csvContent], { type: 'text/csv' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `activity-log-${new Date().toISOString().slice(0,10)}.csv`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            }}
+                        >
+                            Export Activity Log CSV
+                        </button>
+                    </div>
+                    <PackageTable
+                        packages={filteredPackages.filter(pkg => pkg.status !== 'picked_up')}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onNotify={handleNotify}
+                    />
+                    <div className="mt-10">
+                        <h2 className="text-xl font-bold mb-4">Picked Up Packages</h2>
+                        <PackageTable
+                            packages={filteredPackages.filter(pkg => pkg.status === 'picked_up')}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onNotify={handleNotify}
+                        />
+                    </div>
+                </>
+            )}
+
+            {activeSection === 'tenants' && (
+                <>
+                    <div className="flex justify-end mb-4">
+                        <button
+                            className="px-4 py-2 rounded bg-blue-600 text-white whitespace-nowrap"
+                            onClick={() => {
+                                const headers = ['Name', 'Unit', 'Contact'];
+                                const rows = tenants.map(t => [t.name, t.unit, t.contact]);
+                                const csvContent = [headers, ...rows]
+                                    .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+                                    .join('\n');
+                                const blob = new Blob([csvContent], { type: 'text/csv' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `tenants-${new Date().toISOString().slice(0,10)}.csv`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            }}
+                        >
+                            Export Tenants CSV
+                        </button>
+                    </div>
+                    <TenantManagement tenants={tenants} setTenants={setTenants} />
+                </>
+            )}
+
+            {activeSection === 'settings' && (
+                <AdminSettings
+                    open={true}
+                    onClose={() => setActiveSection('packages')}
+                    onSave={settings => { setAdminSettings(settings); setActiveSection('packages'); setToast({ message: 'Settings saved!', type: 'success' }); }}
+                    initial={adminSettings}
+                />
+            )}
+
             {toast && (
                 <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
             )}
-            <div className="flex flex-col md:flex-row gap-2 mb-4">
-                <input
-                    className="border rounded px-2 py-1 flex-1"
-                    placeholder="Search by tenant, unit, carrier, tracking ID..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                />
-                <select
-                    className="border rounded px-2 py-1"
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value)}
-                >
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="notified">Notified</option>
-                    <option value="picked_up">Picked Up</option>
-                </select>
-                <button
-                    className="px-3 py-1 rounded bg-blue-600 text-white"
-                    onClick={exportCSV}
-                >
-                    Export CSV
-                </button>
-            </div>
-            <DashboardHeader onAdd={handleAdd} />
-            <PackageTable
-                packages={filteredPackages.filter(pkg => pkg.status !== 'picked_up')}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onNotify={handleNotify}
-            />
-            {/* Picked Up Packages Section */}
-            <div className="mt-8">
-                <h2 className="text-xl font-bold mb-2">Picked Up Packages</h2>
-                <PackageTable
-                    packages={filteredPackages.filter(pkg => pkg.status === 'picked_up')}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onNotify={handleNotify}
-                />
-            </div>
+
             <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Package' : 'Add Package'}>
                 <PackageForm
                     initialValues={editingPackage}
@@ -247,23 +348,14 @@ const LandlordDashboard: React.FC = () => {
                     submitLabel={editId ? 'Update' : 'Add'}
                 />
             </Modal>
+
             <Modal open={!!deleteId} onClose={cancelDelete} title="Confirm Delete">
                 <div className="mb-4">Are you sure you want to delete this package?</div>
-                <div className="flex gap-2 justify-end">
-                    <button className="px-3 py-1 rounded bg-gray-200" onClick={cancelDelete}>Cancel</button>
-                    <button className="px-3 py-1 rounded bg-red-600 text-white" onClick={confirmDelete}>Delete</button>
+                <div className="flex gap-3 justify-end">
+                    <button className="px-4 py-2 rounded bg-gray-200" onClick={cancelDelete}>Cancel</button>
+                    <button className="px-4 py-2 rounded bg-red-600 text-white" onClick={confirmDelete}>Delete</button>
                 </div>
             </Modal>
-            <button className="mb-4 px-3 py-1 rounded bg-gray-100 border self-end" onClick={() => setSettingsOpen(true)}>
-                Admin Settings
-            </button>
-            <AdminSettings
-                open={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                onSave={settings => { setAdminSettings(settings); setSettingsOpen(false); setToast({ message: 'Settings saved!', type: 'success' }); }}
-                initial={adminSettings}
-            />
-            <TenantManagement tenants={tenants} setTenants={setTenants} />
         </div>
     );
 };

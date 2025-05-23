@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import SampleButton from '../../components/atoms/SampleButton';
 import TextInput from '../../components/atoms/TextInput';
