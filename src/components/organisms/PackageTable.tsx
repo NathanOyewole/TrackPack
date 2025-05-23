@@ -5,7 +5,7 @@ export interface PackageTableProps {
     packages: Package[];
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
-    onNotify: (id: string) => void;
+    onNotify: (id: string, confirmPickup?: boolean) => void;
 }
 
 const PackageTable: React.FC<PackageTableProps> = ({ packages, onEdit, onDelete, onNotify }) => (

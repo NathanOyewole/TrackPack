@@ -16,7 +16,7 @@ export interface PackageTableRowProps {
     pkg: Package;
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
-    onNotify: (id: string) => void;
+    onNotify: (id: string, isPickupConfirm?: boolean) => void;
 }
 
 const PackageTableRow: React.FC<PackageTableRowProps> = ({ pkg, onEdit, onDelete, onNotify }) => (
@@ -32,6 +32,9 @@ const PackageTableRow: React.FC<PackageTableRowProps> = ({ pkg, onEdit, onDelete
             <SampleButton label="Delete" onClick={() => onDelete(pkg.id)} />
             {pkg.status === 'pending' && (
                 <SampleButton label="Notify" onClick={() => onNotify(pkg.id)} />
+            )}
+            {pkg.status === 'notified' && (
+                <SampleButton label="Confirm Pickup" onClick={() => onNotify(pkg.id, true)} />
             )}
         </td>
     </tr>

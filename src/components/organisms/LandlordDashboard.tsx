@@ -59,9 +59,16 @@ const LandlordDashboard: React.FC = () => {
         setModalOpen(false);
     };
 
-    const handleNotify = (id: string) => {
-        setPackages(pkgs => pkgs.map(pkg => pkg.id === id ? { ...pkg, status: 'notified' } : pkg));
-        // TODO: Trigger notification (email/SMS) here
+    const handleNotify = (id: string, confirmPickup?: boolean) => {
+        if (confirmPickup) {
+            setPackages(pkgs => pkgs.map(pkg => pkg.id === id ? { ...pkg, status: 'picked_up' } : pkg));
+            // Simulate pickup confirmation (e.g., toast or log)
+            console.log('Package picked up:', id);
+        } else {
+            setPackages(pkgs => pkgs.map(pkg => pkg.id === id ? { ...pkg, status: 'notified' } : pkg));
+            // Simulate notification (e.g., toast or log)
+            console.log('Notification sent to tenant for package:', id);
+        }
     };
 
     const editingPackage = editId ? packages.find(pkg => pkg.id === editId) : undefined;
@@ -70,11 +77,21 @@ const LandlordDashboard: React.FC = () => {
         <div className="max-w-4xl mx-auto p-4">
             <DashboardHeader onAdd={handleAdd} />
             <PackageTable
-                packages={packages}
+                packages={packages.filter(pkg => pkg.status !== 'picked_up')}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onNotify={handleNotify}
             />
+            {/* Picked Up Packages Section */}
+            <div className="mt-8">
+                <h2 className="text-xl font-bold mb-2">Picked Up Packages</h2>
+                <PackageTable
+                    packages={packages.filter(pkg => pkg.status === 'picked_up')}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onNotify={handleNotify}
+                />
+            </div>
             <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Package' : 'Add Package'}>
                 <PackageForm
                     initialValues={editingPackage}
