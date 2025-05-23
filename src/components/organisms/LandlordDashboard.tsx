@@ -6,6 +6,7 @@ import PackageTable from './PackageTable';
 import Modal from '../atoms/Modal';
 import PackageForm, { PackageFormValues } from '../molecules/PackageForm';
 import { Package } from '../molecules/PackageTableRow';
+import Toast from '../atoms/Toast';
 
 const initialPackages: Package[] = [
     {
@@ -32,6 +33,7 @@ const LandlordDashboard: React.FC = () => {
     const [packages, setPackages] = useState<Package[]>(initialPackages);
     const [modalOpen, setModalOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
 
     const handleAdd = () => {
         setEditId(null);
@@ -45,16 +47,19 @@ const LandlordDashboard: React.FC = () => {
 
     const handleDelete = (id: string) => {
         setPackages(pkgs => pkgs.filter(pkg => pkg.id !== id));
+        setToast({ message: 'Package deleted.', type: 'success' });
     };
 
     const handleSubmit = (values: PackageFormValues) => {
         if (editId) {
             setPackages(pkgs => pkgs.map(pkg => pkg.id === editId ? { ...pkg, ...values } : pkg));
+            setToast({ message: 'Package updated.', type: 'success' });
         } else {
             setPackages(pkgs => [
                 ...pkgs,
                 { ...values, id: Date.now().toString(), status: 'pending' as const },
             ]);
+            setToast({ message: 'Package added.', type: 'success' });
         }
         setModalOpen(false);
     };
@@ -62,12 +67,10 @@ const LandlordDashboard: React.FC = () => {
     const handleNotify = (id: string, confirmPickup?: boolean) => {
         if (confirmPickup) {
             setPackages(pkgs => pkgs.map(pkg => pkg.id === id ? { ...pkg, status: 'picked_up' } : pkg));
-            // Simulate pickup confirmation (e.g., toast or log)
-            console.log('Package picked up:', id);
+            setToast({ message: 'Package marked as picked up!', type: 'success' });
         } else {
             setPackages(pkgs => pkgs.map(pkg => pkg.id === id ? { ...pkg, status: 'notified' } : pkg));
-            // Simulate notification (e.g., toast or log)
-            console.log('Notification sent to tenant for package:', id);
+            setToast({ message: 'Tenant notified!', type: 'info' });
         }
     };
 
@@ -75,6 +78,9 @@ const LandlordDashboard: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-4">
+            {toast && (
+                <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+            )}
             <DashboardHeader onAdd={handleAdd} />
             <PackageTable
                 packages={packages.filter(pkg => pkg.status !== 'picked_up')}
