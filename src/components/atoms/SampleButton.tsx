@@ -6,7 +6,7 @@ import React from 'react';
  */
 export interface SampleButtonProps {
     label: string;
-    onClick?: () => void;
+    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 const SampleButton: React.FC<SampleButtonProps> = ({ label, onClick }) => (
