@@ -15,7 +15,7 @@ import { db } from '../../firebase';
 import { loadStripe } from '@stripe/stripe-js';
 
 // Stripe publishable key (test mode)
-const stripePromise = loadStripe('pk_test_XXXXXXXXXXXXXXXXXXXXXXXX');
+const stripePromise = loadStripe('pk_test_51RSC7CIbJmvyHDypcdnK9PaMpxE4MqQ3IgSanpBzgYl3gMRoOWBfmccmQ4bD4meWTpBSxcNfUn5oC4UgvZjkFw0W002LgkZidW');
 
 const LandlordDashboard: React.FC = () => {
     const [packages, setPackages] = useState<Package[]>([]);
@@ -175,14 +175,17 @@ const LandlordDashboard: React.FC = () => {
 
     // Example: Stripe checkout handler
     const handleUpgrade = async (planId: string) => {
-        // In production, call a backend or Firebase Function to create a Stripe Checkout session
-        // For demo, just simulate
         setToast({ message: `Redirecting to Stripe for ${planId} plan...`, type: 'info' });
+        // In production, call a backend or Firebase Function to create a Stripe Checkout session
         // Example fetch (replace with your endpoint):
-        // const res = await fetch('/api/create-checkout-session', { method: 'POST', body: JSON.stringify({ planId }) });
-        // const { sessionId } = await res.json();
-        // const stripe = await stripePromise;
-        // await stripe.redirectToCheckout({ sessionId });
+        const res = await fetch('http://localhost:4000/api/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ planId, userId: 'demo-user' }) // Replace with real userId from auth
+        });
+        const { sessionId } = await res.json();
+        const stripe = await stripePromise;
+        await stripe?.redirectToCheckout({ sessionId });
     };
 
     if (loading) return <div className="text-center py-10">Loading...</div>;
