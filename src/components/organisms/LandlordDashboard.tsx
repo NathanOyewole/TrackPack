@@ -42,7 +42,7 @@ const LandlordDashboard: React.FC = () => {
     ];
 
     // Example: User subscription state (should be loaded from Firestore in production)
-    const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
+    const [userPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
 
     // Fetch packages from Firestore (real-time)
     useEffect(() => {
@@ -156,7 +156,7 @@ const LandlordDashboard: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `package-logs-${new Date().toISOString().slice(0,10)}.csv`;
+        a.download = `package-logs-${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -271,7 +271,7 @@ const LandlordDashboard: React.FC = () => {
                                 const url = URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = url;
-                                a.download = `activity-log-${new Date().toISOString().slice(0,10)}.csv`;
+                                a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.csv`;
                                 a.click();
                                 URL.revokeObjectURL(url);
                             }}
@@ -312,7 +312,7 @@ const LandlordDashboard: React.FC = () => {
                                 const url = URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = url;
-                                a.download = `tenants-${new Date().toISOString().slice(0,10)}.csv`;
+                                a.download = `tenants-${new Date().toISOString().slice(0, 10)}.csv`;
                                 a.click();
                                 URL.revokeObjectURL(url);
                             }}
